@@ -2,12 +2,15 @@ package com.example.demo.controller;
 
 import com.example.demo.model.Produto;
 import com.example.demo.repository.ProdutoRepository;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -17,37 +20,42 @@ public class ProdutoController {
     //Injeta um instância do tipo da variável
     private final ProdutoRepository repository;
 
-    @GetMapping
-    public List<Produto> findAll(){
-        return repository.findAll();
-    }
-
     @GetMapping("/{id}")
-    public Produto findById(@PathVariable long id){
+    public ResponseEntity<Produto> findById(@Valid @PathVariable long id){
         return repository
                 .findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .map(ResponseEntity::ok)
+                //.orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado"));
     }
 
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable long id){
-        repository.findAndDelete(id);
+    @GetMapping
+    public ResponseEntity<List<Produto>> findAll(){
+        return ResponseEntity.ok(repository.findAll());
     }
-
 
     @PostMapping
-    public Produto insert(@RequestBody Produto produto){
-        return repository.save(produto);
+    public ResponseEntity<Produto> insert(@Valid @RequestBody Produto produto){
+        final var newProduto = repository.save(produto);
+        final var location = URI.create("/produto/" + newProduto.getId());
+        return ResponseEntity.created(location).body(newProduto);
     }
 
     @PutMapping("{id}")
-    public Produto update(@PathVariable long id, @RequestBody Produto produto){
+    public ResponseEntity<Produto> update(@PathVariable long id, @RequestBody Produto produto){
         final var msg = "O ID informado não coincide com o ID do objeto passado";
         if (id != produto.getId())
             throw new ResponseStatusException(HttpStatus.CONFLICT, msg);
 
-        return repository.save(produto);
+        return ResponseEntity.ok(repository.save(produto));
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity delete(@Valid @PathVariable long id){
+        repository.findAndDelete(id);
+        return ResponseEntity.noContent().build();
+    }
+
 
     /**
      * https://swagger.io/
